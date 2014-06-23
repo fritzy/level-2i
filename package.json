@@ -1,0 +1,33 @@
+{
+  "name": "level-2i",
+  "version": "0.0.1",
+  "description": "Level, secondary indexes.",
+  "main": "index.js",
+  "scripts": {
+    "test": "node_modules/nodeunit/bin/nodeunit tests/test.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git@github.com:fritzy/level-2i.git"
+  },
+  "keywords": [
+    "level",
+    "levelup",
+    "database",
+    "indexes",
+    "secondary",
+    "key"
+  ],
+  "author": "Nathan Fritz",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/fritzy/level-2i/issues"
+  },
+  "homepage": "https://github.com/fritzy/level-2i",
+  "devDependencies": {
+    "nodeunit": "^0.9.0"
+  },
+  "dependencies": {
+    "level-atomichooks": "0.0.1"
+  }
+}
