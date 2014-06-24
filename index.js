@@ -1,7 +1,42 @@
-var AtomicHooks = require('./index');
+var AtomicHooks = require('level-atomichooks');
 var uuid = require('node-uuid');
-var base64fill = require('base64fill');
+var base60fill = require('base60fill');
 var async = require('async');
+var through = require('through');
+var stream = require('stream');
+var util = require('util');
+
+function IndexToKeyValue(db, opts) {
+    this.db = db;
+    this.dbopts = opts;
+    streamopts = {};
+    streamopts.highWaterMark = 10;
+    streamopts.objectMode = true;
+    streamopts.allowHalfOpen = false;
+    stream.Transform.call(this, streamopts);
+}
+
+util.inherits(IndexToKeyValue, stream.Transform);
+
+(function () {
+    this._transform = function (entry, encoding, next) {
+        var key = entry.value;
+        if (this.dbopts.values) {
+            this.db.get(key, this.dbopts, function (err, value) {
+                if (!err && value) {
+                    if (this.dbopts.keys) {
+                        this.push({key: key, value: value});
+                    } else {
+                        this.push(value);
+                    }
+                }
+                next();
+            }.bind(this));
+        } else {
+            this.push(key);
+        }
+    };
+}).call(IndexToKeyValue.prototype);
 
 function Level2i(db, opts) {
     if (!db.atomichooks) {
@@ -27,9 +62,46 @@ function Level2i(db, opts) {
                     indexes.bin[index.key] = index.value;
                 }
             });
+            console.log("updating indexes");
             db._updateIndexes(key, indexes, opts, callback);
         } else {
             callback();
+        }
+    });
+
+    db.registerReadStreamOverride(function (opts) {
+        var stream;
+        if (typeof opts.values === 'undefined') {
+            opts.values = true;
+        }
+        if (typeof opts.keys === 'undefined') {
+            opts.keys = true;
+        }
+        if (opts.index) {
+            if (opts.index.indexOf(-4) ===  '_int') {
+                opts.index = opts.index.substr(0, opts.index.length - 4);
+                opts.start = base64fill.base60Fill(opts.start, 10);
+                opts.end = base64fill.base60Fill(opts.end, 10);
+            } else {
+                opts.index = opts.index.substr(0, opts.index.length - 4);
+                opts.start = ['__index__', opts.index, opts.start].join(db.opts2i.sep);
+                opts.end = ['__index__', opts.index, opts.end].join(db.opts2i.sep);
+            }
+
+            console.log(opts);
+
+            stream = db.parent.createReadStream({
+                start: opts.start,
+                end: opts.end,
+                reverse: opts.reverse,
+                keys: true,
+                values: true,
+            });
+            
+            return stream.pipe(new IndexToKeyValue(db.parent, opts));
+
+        } else {
+            return db.parent.createReadStream(opts);
         }
     });
 
@@ -207,15 +279,4 @@ function Level2i(db, opts) {
     return db;
 }
 
-var levelup = require('levelup');
-var tst = levelup('./testdbforme', {valueEncoding: 'json'});
-tst = Level2i(tst);
-
-tst.put('hey', {test: 1}, {indexes: [{key: 'derp_bin', value: 'bloop'}]}, function (err) {
-    tst.get('hey', function (err, result) {
-        console.log(result);
-        tst.del('hey', function (err, result) {
-            console.log("done deleted");
-        });
-    });
-});
+module.exports = Level2i;
