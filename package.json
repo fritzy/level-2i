@@ -1,6 +1,6 @@
 {
   "name": "level-2i",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "description": "Level, secondary indexes.",
   "main": "index.js",
   "scripts": {
