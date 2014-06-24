@@ -28,7 +28,7 @@
     "nodeunit": "^0.9.0"
   },
   "dependencies": {
-    "level-atomichooks": "0.0.1",
+    "level-atomichooks": "0.0.3",
     "node-uuid": "^1.4.1",
     "through": "^2.3.4",
     "base60fill": "^1.0.0",
