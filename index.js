@@ -5,6 +5,7 @@ var async = require('async');
 var through = require('through');
 var stream = require('stream');
 var util = require('util');
+var underscore = require('underscore');
 
 function IndexToKeyValue(db, opts) {
     this.db = db;
@@ -39,9 +40,7 @@ util.inherits(IndexToKeyValue, stream.Transform);
 }).call(IndexToKeyValue.prototype);
 
 function Level2i(db, opts) {
-    if (!db.atomichooks) {
-        db = AtomicHooks(db);
-    }
+    db = AtomicHooks(db);
 
     db.opts2i = opts || {};
     db.opts2i.sep = db.opts2i.sep || '!';
@@ -62,7 +61,6 @@ function Level2i(db, opts) {
                     indexes.bin[index.key] = index.value;
                 }
             });
-            console.log("updating indexes");
             db._updateIndexes(key, indexes, opts, callback);
         } else {
             callback();
@@ -88,15 +86,11 @@ function Level2i(db, opts) {
                 opts.end = ['__index__', opts.index, opts.end].join(db.opts2i.sep);
             }
 
-            console.log(opts);
-
-            stream = db.parent.createReadStream({
-                start: opts.start,
-                end: opts.end,
-                reverse: opts.reverse,
-                keys: true,
-                values: true,
-            });
+            var ropts = underscore.clone(opts);
+            ropts.keys = true;
+            ropts.values = true;
+            
+            stream = db.parent.createReadStream(ropts);
             
             return stream.pipe(new IndexToKeyValue(db.parent, opts));
 
@@ -114,8 +108,6 @@ function Level2i(db, opts) {
             [function (pcb) {
                 async.each(Object.keys(meta.bin_indexes),
                 function (field, ecb) {
-                    console.log(meta);
-                    console.log(field);
                     db._deleteIndex(key, meta.bin_indexes[field].key, field, meta.bin_indexes[field].value, opts, ecb);
                 }, pcb);
             },
@@ -139,7 +131,6 @@ function Level2i(db, opts) {
             } else {
                 count = parseInt(val, 10);
             }
-            console.log(key, val, count, amount);
             count += amount;
             if (count === 0) {
                 db.parent.del(key, opts, function (err) {

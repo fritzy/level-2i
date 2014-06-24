@@ -31,6 +31,7 @@
     "level-atomichooks": "0.0.1",
     "node-uuid": "^1.4.1",
     "through": "^2.3.4",
-    "base60fill": "^1.0.0"
+    "base60fill": "^1.0.0",
+    "underscore": "^1.6.0"
   }
 }
