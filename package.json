@@ -32,6 +32,7 @@
     "node-uuid": "^1.4.1",
     "through": "^2.3.4",
     "base60fill": "^1.0.0",
-    "underscore": "^1.6.0"
+    "underscore": "^1.6.0",
+    "padlock": "^1.1.2"
   }
 }

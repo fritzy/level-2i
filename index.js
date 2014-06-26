@@ -6,6 +6,7 @@ var through = require('through');
 var stream = require('stream');
 var util = require('util');
 var underscore = require('underscore');
+var Padlock = require('padlock').Padlock;
 
 function IndexToKeyValue(db, opts) {
     this.db = db;
@@ -40,66 +41,43 @@ util.inherits(IndexToKeyValue, stream.Transform);
 }).call(IndexToKeyValue.prototype);
 
 function Level2i(db, opts) {
-    db = AtomicHooks(db);
+    db = AtomicHooks(db, "level-2i");
 
     db.opts2i = opts || {};
     db.opts2i.sep = db.opts2i.sep || '!';
+    var lock = new Padlock();
 
-    db.registerPutHook(function (key, value, opts, batch, callback) {
-        var indexes = {bin: [], int: []};
-        if (Array.isArray(opts.indexes)) {
-            opts.indexes.forEach(function (index) {
-                var idx, idx2;
-                idx = index.key.indexOf('_int');
-                if (idx !== -1) {
-                    indexes.int[index.key.substr(0, idx)] = index.value;
+    db.put = function (key, value, opts, callback) {
+        lock.runwithlock(function () {
+            db.parent.put(key, value, opts, function (err) {
+                var indexes = {bin: [], int: []};
+                if (Array.isArray(opts.indexes) && opts.indexes.length > 0) {
+                    opts.indexes.forEach(function (index) {
+                        var idx, idx2;
+                        idx = index.key.indexOf('_int');
+                        if (idx !== -1) {
+                            indexes.int[index.key.substr(0, idx)] = index.value;
+                        } else {
+                            idx2 = index.key.indexOf('_bin');
+                            if (idx2 !== -1) {
+                                index.key = index.key.substr(0, idx2);
+                            }
+                            indexes.bin[index.key] = index.value;
+                        }
+                    });
+                    db._updateIndexes(key, indexes, opts, function (err) {
+                        lock.release();
+                        callback(err);
+                    });
                 } else {
-                    idx2 = index.key.indexOf('_bin');
-                    if (idx2 !== -1) {
-                        index.key = index.key.substr(0, idx2);
-                    }
-                    indexes.bin[index.key] = index.value;
+                    lock.release();
+                    callback();
                 }
-            });
-            db._updateIndexes(key, indexes, opts, callback);
-        } else {
-            callback();
-        }
-    });
+            })
+        });
+    };
 
-    db.registerReadStreamOverride(function (opts) {
-        var stream;
-        if (typeof opts.values === 'undefined') {
-            opts.values = true;
-        }
-        if (typeof opts.keys === 'undefined') {
-            opts.keys = true;
-        }
-        if (opts.index) {
-            if (opts.index.indexOf(-4) ===  '_int') {
-                opts.index = opts.index.substr(0, opts.index.length - 4);
-                opts.start = base64fill.base60Fill(opts.start, 10);
-                opts.end = base64fill.base60Fill(opts.end, 10);
-            } else {
-                opts.index = opts.index.substr(0, opts.index.length - 4);
-                opts.start = ['__index__', opts.index, opts.start].join(db.opts2i.sep);
-                opts.end = ['__index__', opts.index, opts.end].join(db.opts2i.sep);
-            }
-
-            var ropts = underscore.clone(opts);
-            ropts.keys = true;
-            ropts.values = true;
-            
-            stream = db.parent.createReadStream(ropts);
-            
-            return stream.pipe(new IndexToKeyValue(db.parent, opts));
-
-        } else {
-            return db.parent.createReadStream(opts);
-        }
-    });
-
-    db.registerDelHook(function (key, opts, batch, callback) {
+    db.del = function (key, opts, callback) {
         db.parent.get(['__meta__', key].join(db.opts2i.sep), opts, function (err, meta) {
             if (err || !meta) {
                 meta = {bin_indexes: {}, int_indexes: {}};
@@ -120,8 +98,41 @@ function Level2i(db, opts) {
             function (pcb) {
                 db.parent.del(['__meta__', key].join(db.opts2i.sep), opts, pcb);
             }],
-            callback);
+            function (err) {
+                db.parent.del(key, opts, callback);
+            });
         });
+    };
+
+    db.registerReadStreamOverride(function (opts) {
+        var stream;
+        if (typeof opts.values === 'undefined') {
+            opts.values = true;
+        }
+        if (typeof opts.keys === 'undefined') {
+            opts.keys = true;
+        }
+        if (opts.index) {
+            if (opts.index.substr(-4) ===  '_int') {
+                opts.start = base60fill.base60Fill(opts.start, 10);
+                opts.end = base60fill.base60Fill(opts.end, 10);
+            }
+            opts.index = opts.index.substr(0, opts.index.length - 4);
+                opts.start = ['__index__', opts.index, opts.start].join(db.opts2i.sep);
+                opts.end = ['__index__', opts.index, opts.end].join(db.opts2i.sep);
+                opts.end += '~';
+
+            var ropts = underscore.clone(opts);
+            ropts.keys = true;
+            ropts.values = true;
+            
+            stream = db.parent.createReadStream(ropts);
+            
+            return stream.pipe(new IndexToKeyValue(db.parent, opts));
+
+        } else {
+            return db.parent.createReadStream(opts);
+        }
     });
 
     db.increment = function (key, amount, opts, callback) {
@@ -234,7 +245,7 @@ function Level2i(db, opts) {
                 function (pcb) {
                     //update integer indexes
                     async.each(Object.keys(indexes.int), function (field, ecb) {
-                        var newvalue = base64fill.base60Fill(parseInt(indexes.int[field], 10), 10);
+                        var newvalue = base60fill.base60Fill(parseInt(indexes.int[field], 10), 10);
                         if (meta.int_indexes.hasOwnProperty(field)) {
                             if (newvalue !== meta.bin_indexes[field].value) {
                                 db._updateIndex(key, field, meta.int_indexes[field].key, meta.bin_indexes[field].value, newvalue, opts, function (err, index) {
