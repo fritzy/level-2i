@@ -47,6 +47,19 @@ function Level2i(db, opts) {
     db.opts2i.sep = db.opts2i.sep || '!';
     var lock = new Padlock();
 
+    db.getIndexValueTotal = function (index, value, opts, callback) {
+        var end = index.substr(index.length - 4);
+        if (end === '_int' || end === '_bin') {
+            index = index.substr(0, index.length - 4);
+        }
+        db.get(['__total__', '__index_value__', index, value].join(db.opts2i.sep), opts, function (err, num) {
+            if (err || !num) {
+                num = 0;
+            }
+            callback(err, num);
+        }); 
+    };
+
     db.put = function (key, value, opts, callback) {
         lock.runwithlock(function () {
             db.parent.put(key, value, opts, function (err) {
