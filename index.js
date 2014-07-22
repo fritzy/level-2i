@@ -48,6 +48,10 @@ function Level2i(db, opts) {
     var lock = new Padlock();
 
     db.getIndexValueTotal = function (index, value, opts, callback) {
+        if (typeof opts === 'function') {
+            callback = opts;
+            opts = {};
+        }
         var end = index.substr(index.length - 4);
         if (end === '_int' || end === '_bin') {
             index = index.substr(0, index.length - 4);
