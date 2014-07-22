@@ -13,7 +13,7 @@ var mydb = Level2i(levelup('/some/path'));
 ## Put with indexes
 
 ```javascript
-mydb.put('somekey', 'cheese', {indexes: {'name_bin': 'Fritzy'}}, function (err) {
+mydb.put('somekey', 'cheese', {indexes: {'name_bin': 'fritzy'}}, function (err) {
     // ...
 });
 ```
