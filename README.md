@@ -1,7 +1,7 @@
 #Level-2i, Secondary Indexes for Level
 
 Creates and manages indexes and totals for your keys atomically, allowing you to look up keys by their secondary indexes.
-Unlike existing packages, indexes are kept up to date as you update the value.
+Indexes are kept up to date as you update the value.
 
 ## Wrap LevelUp
 
@@ -13,7 +13,7 @@ var mydb = Level2i(levelup('/some/path'));
 ## Put with indexes
 
 ```javascript
-mydb.put('somekey', 'cheese', {indexes: {'name_bin': 'Fritzy'}}, function (err) {
+mydb.put('somekey', 'cheese', {indexes: {'name_bin': 'fritzy'}}, function (err) {
     // ...
 });
 ```
