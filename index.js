@@ -11,6 +11,7 @@ var Padlock = require('padlock').Padlock;
 function IndexToKeyValue(db, opts) {
     this.db = db;
     this.dbopts = opts;
+    this.lastKey = null;
     streamopts = {};
     streamopts.highWaterMark = 10;
     streamopts.objectMode = true;
@@ -23,11 +24,16 @@ util.inherits(IndexToKeyValue, stream.Transform);
 (function () {
     this._transform = function (entry, encoding, next) {
         var key = entry.value;
+        this.lastkey = entry.key;
         if (this.dbopts.values) {
             this.db.get(key, this.dbopts, function (err, value) {
                 if (!err && value) {
                     if (this.dbopts.keys) {
-                        this.push({key: key, value: value});
+                        if (typeof entry.extra === 'undefined') {
+                            entry.extra = {};
+                        }
+                        entry.extra.indexKey = entry.key;
+                        this.push({key: key, value: value, extra: entry.extra});
                     } else {
                         this.push(value);
                     }
@@ -154,6 +160,7 @@ function Level2i(db, opts) {
 
     db.increment = function (key, amount, opts, callback) {
         db.parent.get(key, opts, function (err, val) {
+            var count;
             if (err || !val) {
                 count = 0;
             } else {
