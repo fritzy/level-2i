@@ -62,12 +62,7 @@ function Level2i(db, opts) {
         if (end === '_int' || end === '_bin') {
             index = index.substr(0, index.length - 4);
         }
-        db.get(['__total__', '__index_value__', index, value].join(db.opts2i.sep), opts, function (err, num) {
-            if (err || !num) {
-                num = 0;
-            }
-            callback(err, num);
-        }); 
+        db.getCount(['__total__', '__index_value__', index, value].join(db.opts2i.sep), opts, callback);
     };
 
     db.put = function (key, value, opts, callback) {
@@ -157,27 +152,6 @@ function Level2i(db, opts) {
             return db.parent.createReadStream(opts);
         }
     });
-
-    db.increment = function (key, amount, opts, callback) {
-        db.parent.get(key, opts, function (err, val) {
-            var count;
-            if (err || !val) {
-                count = 0;
-            } else {
-                count = parseInt(val, 10);
-            }
-            count += amount;
-            if (count === 0) {
-                db.parent.del(key, opts, function (err) {
-                    callback(err, count);
-                });
-            } else {
-                db.parent.put(key, count, opts, function (err) {
-                    callback(err, count);
-                });
-            }
-        });
-    };
 
     db._updateIndex = function (key, field, oldikey, oldvalue, newvalue, opts, callback) {
         async.waterfall([
