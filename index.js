@@ -12,7 +12,7 @@ function IndexToKeyValue(db, opts) {
     this.db = db;
     this.dbopts = opts;
     this.lastKey = null;
-    streamopts = {};
+    var streamopts = {};
     streamopts.highWaterMark = 10;
     streamopts.objectMode = true;
     streamopts.allowHalfOpen = false;
